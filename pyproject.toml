@@ -1,13 +1,44 @@
 [project]
 name = "feedwright"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Generate RSS and Atom feeds from a variety of sources, including websites and APIs."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.136.1",
     "feedgen>=1.0.0",
+    "httpx>=0.28.1",
+    "jq>=1.11.0",
+    "platformdirs>=4.9.6",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "toml>=0.10.2",
+    "yarl>=1.23.0",
 ]
+
+[dependency-groups]
+dev = [
+    "version-pioneer>=0.0.16",
+]
+
+
+[build-system]
+requires = ["hatchling", "version-pioneer"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.version]
+source = "version-pioneer"
+
+[tool.hatch.build.hooks.version-pioneer]
+# section is empty because we read config from `[tool.version-pioneer]` section.
+
+[tool.version-pioneer]
+versionscript = "app/_version.py"  # Where to "read" the Version-Pioneer script (to execute `get_version_dict()`).
+versionfile-sdist = "app/_version.py"  # Where to "write" the version dict for sdist.
+versionfile-wheel = "app/_version.py"  # Where to "write" the version dict for wheel.
+
+
