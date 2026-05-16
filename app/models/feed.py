@@ -133,8 +133,8 @@ class Article(BaseModel):
 
 
 class Generator(BaseModel):
-    name: str = settings.generator_name
-    version: str | None = settings.generator_version
+    name: str = settings.generator.name
+    version: str | None = settings.generator.version
 
     def to_feedgen(self) -> dict[str, str]:
         generator = {"name": self.name}

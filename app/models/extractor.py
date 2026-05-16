@@ -17,11 +17,6 @@ class ExtractorConfig(BaseModel):
         description="The configuration to pass to the plugin when instantiating it",
     )
 
-    def concretize(self) -> "Extractor":
-        package, type = self.plugin.rsplit(":", 1)
-        cls = __import__(package).__dict__[type]
-        return cls.model_validate(self.config)
-
 
 class Extractor(BaseModel):
     async def extract(self, config: ExtractorConfig) -> Feed:

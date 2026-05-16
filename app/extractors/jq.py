@@ -1,22 +1,33 @@
 import jq
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.extractor import Extractor, ExtractorConfig
-from app.models.feed import Feed
+from app.models.feed import Article, Feed
 
 from app.settings import settings
 
 
-class JqExtractor(Extractor):
-    url: str
-
-    root_selector: jq.CompiledProgram = Field(
-        ..., description="jq expression to select the root of the JSON data"
+class ArticlesConfig(BaseModel):
+    query: str = Field(
+        ..., description="glom expression to select articles from the JSON data"
     )
 
-    article_selector: jq.CompiledProgram = Field(
-        ..., description="jq expression to select articles from the JSON data"
+    title: str | None = None
+    summary: str | None = None
+
+
+class JqExtractor(Extractor):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    url: str
+
+    root: str = Field(
+        ".", description="glom expression to select the root of the JSON data"
+    )
+
+    articles: ArticlesConfig = Field(
+        ..., description="Configuration for selecting articles from the JSON data"
     )
 
     async def extract(self, config: ExtractorConfig) -> Feed:
@@ -26,17 +37,27 @@ class JqExtractor(Extractor):
             _ = response.raise_for_status()
             data = response.json()
 
-        doc = self.root_selector.input(data).first()
+        if self.root != ".":
+            data = jq.compile(self.root).input(data).first()
 
-        articles = self.article_selector.input(doc).all()
+        title_query = jq.compile(self.articles.title) if self.articles.title else None
+        summary_query = (
+            jq.compile(self.articles.summary) if self.articles.summary else None
+        )
 
-        breakpoint()
+        articles = []
 
-        return config.feed_defaults
+        for article in jq.compile(self.articles.query).input(data).all():
+            out_article = Article()
 
-    @field_validator("root_selector", "article_selector", mode="before")
-    def validate_root_selector(cls, value: str) -> jq.CompiledProgram:
-        try:
-            return jq.compile(value)
-        except Exception as e:
-            raise ValueError(f"Invalid jq expression: {e}")
+            if title_query is not None:
+                out_article.title = title_query.input(article).first()
+
+            if summary_query is not None:
+                out_article.summary = summary_query.input(article).first()
+
+            articles.append(out_article)
+
+        feed = config.feed_defaults.model_copy(update={"articles": articles})
+
+        return feed

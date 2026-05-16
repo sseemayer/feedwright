@@ -5,6 +5,7 @@ description = "Generate RSS and Atom feeds from a variety of sources, including 
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "asyncio>=4.0.0",
     "fastapi[standard]>=0.136.1",
     "feedgen>=1.0.0",
     "httpx>=0.28.1",
@@ -13,8 +14,12 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "toml>=0.10.2",
+    "typer>=0.25.1",
     "yarl>=1.23.0",
 ]
+
+[project.scripts]
+feedwright = "app.cli:app"
 
 [dependency-groups]
 dev = [
@@ -40,5 +45,4 @@ source = "version-pioneer"
 versionscript = "app/_version.py"  # Where to "read" the Version-Pioneer script (to execute `get_version_dict()`).
 versionfile-sdist = "app/_version.py"  # Where to "write" the version dict for sdist.
 versionfile-wheel = "app/_version.py"  # Where to "write" the version dict for wheel.
-
 
