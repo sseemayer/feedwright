@@ -1,0 +1,13 @@
+[project]
+name = "feedwright"
+version = "0.1.0"
+description = "Generate RSS and Atom feeds from a variety of sources, including websites and APIs."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.136.1",
+    "feedgen>=1.0.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "toml>=0.10.2",
+]
