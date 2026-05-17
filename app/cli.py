@@ -5,6 +5,7 @@ For debugging and development purposes, the `list` and `get` commands will be wo
 
 import typer
 
+from app.render import OutputFormat
 from app.settings import settings
 from app.extract import extractors
 
@@ -26,12 +27,17 @@ def list_extractors():
 
 
 @app.command("get")
-def get_extractor(name: str):
+def get_extractor(
+    name: str,
+    format: OutputFormat = typer.Option(OutputFormat.json, help="Output format"),
+):
     """Get the RSS feed for a specific extractor name."""
 
     feed = extractors.get(name)
 
-    typer.echo(feed.model_dump_json(indent=2, exclude_none=True))
+    rendered = format.render(feed)
+
+    typer.echo(rendered)
 
 
 @app.command()

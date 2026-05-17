@@ -66,12 +66,20 @@ class Link(BaseModel):
         return link
 
 
+class Image(BaseModel):
+    url: str
+    length: str | None = None
+    type: str | None = None
+
+
 class Article(BaseModel):
     id: str | None = None
     title: str | None = None
     description: str | None = None
     summary: str | None = None
     content: str | None = None
+
+    image: Image | None = None
 
     publish_date: datetime | None = None
     update_date: datetime | None = None
@@ -101,6 +109,9 @@ class Article(BaseModel):
 
         if self.content is not None:
             _ = fe.content(self.content)
+
+        if self.image is not None:
+            _ = fe.enclosure(self.image.url, self.image.length, self.image.type)
 
         if self.publish_date is not None:
             _ = fe.pubDate(self.publish_date)
@@ -133,11 +144,11 @@ class Article(BaseModel):
 
 
 class Generator(BaseModel):
-    name: str = settings.generator.name
+    generator: str = settings.generator.name
     version: str | None = settings.generator.version
 
     def to_feedgen(self) -> dict[str, str]:
-        generator = {"name": self.name}
+        generator = {"generator": self.generator}
 
         if self.version is not None:
             generator["version"] = self.version
@@ -146,8 +157,10 @@ class Generator(BaseModel):
 
 
 class Feed(BaseModel):
+    id: str = "my feed"
     title: str | None = None
     subtitle: str | None = None
+    description: str = "example feed"
     language: str | None = None
 
     logo: str | None = None
@@ -170,6 +183,10 @@ class Feed(BaseModel):
 
     def to_feedgen(self) -> FeedGenerator:
         fg = FeedGenerator()
+
+        _ = fg.id(self.id)
+
+        _ = fg.description(self.description)
 
         if self.title is not None:
             _ = fg.title(self.title)
