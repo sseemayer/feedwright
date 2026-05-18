@@ -1,4 +1,5 @@
 from enum import Enum
+from fastapi import Response
 
 from app.models.feed import Feed
 
@@ -20,3 +21,20 @@ class OutputFormat(str, Enum):
 
         else:
             raise ValueError(f"Unsupported output format: {self}")
+
+    def render_response(self, feed: Feed) -> Response:
+        content = self.render(feed)
+
+        if self == OutputFormat.json:
+            media_type = "application/json"
+
+        elif self == OutputFormat.rss:
+            media_type = "application/rss+xml"
+
+        elif self == OutputFormat.atom:
+            media_type = "application/atom+xml"
+
+        else:
+            raise ValueError(f"Unsupported output format: {self}")
+
+        return Response(content=content, media_type=media_type)

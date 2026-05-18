@@ -16,7 +16,7 @@ class Extractors:
             for path in (base_path / "feeds").glob("*.toml")
         }
 
-    def get(self, name: str) -> Feed:
+    async def get(self, name: str) -> Feed:
         """Get the RSS feed for a specific extractor name."""
         path = self.extractors.get(name)
         if path is None:
@@ -34,7 +34,7 @@ class Extractors:
 
         extractor = extractor_cls(**extractor_config.config)
 
-        return EventLoop().run_until_complete(extractor.extract(extractor_config))
+        return await extractor.extract(extractor_config)
 
 
 extractors = Extractors()

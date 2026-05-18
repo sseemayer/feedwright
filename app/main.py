@@ -4,10 +4,12 @@ from fastapi.responses import JSONResponse
 
 from app.settings import settings
 
+from app.routers.feed import router as feed_router
 from app.routers.status import router as status_router
 
 app = FastAPI()
 
+app.include_router(feed_router)
 app.include_router(status_router)
 
 
