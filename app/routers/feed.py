@@ -19,7 +19,7 @@ async def get_feeds() -> GetFeedsResponse:
     )
 
 
-@router.get("/{name}/{format}")
+@router.get("/{name}/view/{format}")
 async def get_feed(name: str, format: OutputFormat):
     feed = await extractors.get(name)
     return format.render_response(feed)
