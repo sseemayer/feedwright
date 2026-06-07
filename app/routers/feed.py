@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, ValidationError
 
 from app.extract import extractors
 from app.render import OutputFormat
@@ -21,5 +21,16 @@ async def get_feeds() -> GetFeedsResponse:
 
 @router.get("/{name}/view/{format}")
 async def get_feed(name: str, format: OutputFormat):
-    feed = await extractors.get(name)
+
+    try:
+        feed = await extractors.get(name)
+    except ValidationError as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Invalid feed configuration or response",
+                "details": e.errors(),
+            },
+        )
+
     return format.render_response(feed)

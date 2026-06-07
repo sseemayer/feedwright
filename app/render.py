@@ -29,12 +29,16 @@ class OutputFormat(str, Enum):
             media_type = "application/json"
 
         elif self == OutputFormat.rss:
-            media_type = "application/rss+xml"
+            media_type = "text/xml"
 
         elif self == OutputFormat.atom:
-            media_type = "application/atom+xml"
+            media_type = "text/xml"
 
         else:
             raise ValueError(f"Unsupported output format: {self}")
 
-        return Response(content=content, media_type=media_type)
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": "inline"},
+        )

@@ -48,8 +48,9 @@ def parse_yaml(path: Path) -> dict[str, Any]:  # pyright: ignore[reportExplicitA
 
 
 class Extractors:
-    def __init__(self):
-        self.extractors: dict[str, Path] = {
+    @property
+    def extractors(self) -> dict[str, Path]:
+        return {
             path.stem: path
             for base_path in settings.config_paths
             for extension in [f"*.{ext}" for ext in EXTENSION_TO_PARSER.keys()]
