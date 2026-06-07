@@ -17,7 +17,7 @@ config:
       - root: {jmespath: "data"}
         id: {jmespath: "to_string(id)"}
         title: {jmespath: "attributes.title"}
-        subtitle: {jmespath: "attributes.sub_title"}
+        summary: {jmespath: "attributes.sub_title"}
         description: {jmespath: "attributes.summary"}
 
         image:
