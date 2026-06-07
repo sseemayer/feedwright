@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from app.settings import settings, Settings
 
-router = APIRouter(prefix="/status", tags=["status"])
+router = APIRouter(prefix="/status", tags=["Status"])
 
 
 class ConfigurationResponse(BaseModel):

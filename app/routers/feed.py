@@ -5,7 +5,7 @@ from app.extract import extractors
 from app.render import OutputFormat
 from app.settings import settings, Settings
 
-router = APIRouter(prefix="/feed", tags=["status"])
+router = APIRouter(prefix="/feed", tags=["Feeds"])
 
 
 class GetFeedsResponse(BaseModel):

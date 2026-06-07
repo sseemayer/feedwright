@@ -7,7 +7,10 @@ from app.settings import settings
 from app.routers.feed import router as feed_router
 from app.routers.status import router as status_router
 
-app = FastAPI()
+
+from app import __version__ as app_version
+
+app = FastAPI(title="Feedwright", version=app_version)
 
 app.include_router(feed_router)
 app.include_router(status_router)
