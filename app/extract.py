@@ -1,7 +1,8 @@
-import hjson
+import hjson  # pyright: ignore[reportMissingTypeStubs]
 import toml
 import yaml
 
+from fastapi import HTTPException, status
 from pathlib import Path
 from typing import Any, Callable
 
@@ -61,11 +62,16 @@ class Extractors:
         """Get the RSS feed for a specific extractor name."""
         path = self.extractors.get(name)
         if path is None:
-            raise ValueError(f"No extractor found with name '{name}'")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, f"No extractor found with name '{name}'"
+            )
 
         parser = EXTENSION_TO_PARSER.get(path.suffix[1:])
         if parser is None:
-            raise ValueError(f"No parser registered for extension '{path.suffix}'")
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                f"No parser registered for extension '{path.suffix}'",
+            )
 
         config = parser(path)
 
