@@ -44,6 +44,25 @@ async def get_extractor(
     typer.echo(rendered)
 
 
+@app.command("parsel")
+def parsel(
+    url: str,
+):
+    """Parse a URL and get the RSS feed."""
+
+    from parsel import Selector
+
+    client = settings.http.get_sync_client()
+    res = client.get(url)
+    res.raise_for_status()
+
+    selector = Selector(res.text)
+
+    print("Use 'selector' to interact with the parsed document.")
+
+    breakpoint()
+
+
 @app.command()
 def serve():
     """Start the FastAPI server."""

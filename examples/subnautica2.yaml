@@ -1,0 +1,37 @@
+plugin: "app.extractors.parsel:ParselExtractor"
+
+config:
+    url: "https://unknownworlds-strapi.live.kraftonamericas.com/api/articles?filters[article_game][game][$eqi]=subnautica%202&sort[0]=published_date%3Adesc&sort[1]=id%3Adesc&sort[2]=published_date%3Adesc&start=0&limit=8&locale=en"
+    document_type: 'json'
+
+    id: {constant: "https://unknownworlds.com/en/news/"}
+    title: {constant: "Subnautica 2 News"}
+    description: {constant: "Latest news and updates about Subnautica 2."}
+    logo: {constant: "https://unknownworlds.com/_next/image?url=https%3A%2F%2Fd17c72h1ypygg7.cloudfront.net%2Fnews_hero_72ff4c6996.png&w=3840&q=75"}
+
+    links:
+      - href: {constant: "https://unknownworlds.com/en/news/"}
+        title: {constant: "Subnautica 2 News"}
+
+    articles:
+      - root: {jmespath: "data"}
+        id: {jmespath: "to_string(id)"}
+        title: {jmespath: "attributes.title"}
+        subtitle: {jmespath: "attributes.sub_title"}
+        description: {jmespath: "attributes.summary"}
+
+        image:
+          root: {jmespath: "attributes.thumbnail_image.data.attributes"}
+          url: {jmespath: "url"}
+          type: {jmespath: "mime"}
+
+        authors:
+          - root: {jmespath: "attributes.createdBy"}
+            name: {jmespath: "join(' ', [firstname, lastname])"}
+            email: {jmespath: "email"}
+
+        links:
+          - root: {jmespath: "attributes"}
+            href: {jmespath: "join('', ['https://unknownworlds.com/en/news/', slug])"}
+            title: {jmespath: "title"}
+

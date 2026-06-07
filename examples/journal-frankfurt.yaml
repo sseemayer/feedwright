@@ -1,0 +1,34 @@
+plugin: "app.extractors.parsel:ParselExtractor"
+
+config:
+    url: "https://www.journal-frankfurt.de/"
+    document_type: 'html'
+
+    id: {constant: "https://www.journal-frankfurt.de/"}
+    title: {constant: "Journal Frankfurt"}
+    description: {xpath: "//meta[@name='description']/@content"}
+    logo: {xpath: "//link[@rel='apple-touch-icon']/@href"}
+
+    links:
+      - href: {constant: "https://www.journal-frankfurt.de/"}
+        title: {constant: "Journal Frankfurt"}
+
+
+    articles:
+      - root: {xpath: "//article[@class='teaser' or contains(@class, 'news')]"}
+        id: {css: "a::attr(href)"}
+        title: {css: "a::attr(title)"}
+        description: {xpath: ".//div[@class='news__rubric' or @class='teaser__rubric']/text()"}
+
+        summary: {css: ".teaser__text::text,.news__text::text"}
+
+        image:
+          url: {selectors: [
+            {css: "img::attr(src)"},
+            {css: "a[style*='background-image']::attr(style)", re_first: "background-image:\\s*url\\(['\"]?([^'\")]*)['\"]?\\)"}
+          ]}
+
+        links:
+          - href: {css: "a::attr(href)"}
+            title: {css: "a::attr(title)"}
+

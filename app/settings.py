@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from httpx import AsyncClient
+from httpx import AsyncClient, Client
 from pathlib import Path
 from typing import Annotated
 from pydantic import Field, field_validator
@@ -30,14 +30,27 @@ class HttpSettings(BaseSettings):
         True, description="Whether to follow redirects when making HTTP requests"
     )
 
+    timeout: int = Field(10, description="The timeout in seconds for HTTP requests")
+
     @asynccontextmanager
     async def get_async_client(self):
         async with AsyncClient(
             verify=self.verify_ssl,
             headers={"User-Agent": self.user_agent},
             follow_redirects=self.follow_redirects,
+            timeout=self.timeout,
         ) as client:
             yield client
+
+    def get_sync_client(self):
+        """Get a synchronous HTTP client. Note that this will block the event loop, so use with care."""
+
+        return Client(
+            verify=self.verify_ssl,
+            headers={"User-Agent": self.user_agent},
+            follow_redirects=self.follow_redirects,
+            timeout=self.timeout,
+        )
 
 
 class GeneratorSettings(BaseSettings):
