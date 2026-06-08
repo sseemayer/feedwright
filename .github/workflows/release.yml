@@ -13,18 +13,27 @@ jobs:
   release:
     name: Create Release & Publish Image
     runs-on: ubuntu-latest
-    env:
-      # Compute the exposed version once: strip a leading 'v' from the tag if present.
-      # Compute the exposed version once: strip leading 'v' from the tag if present.
-      # Use GitHub Actions expression functions (startsWith + substring) instead of
-      # Python-style slicing which is not supported in workflow expressions.
-      STRIPPED_VERSION: ${{ startsWith(github.ref_name, 'v') && substring(github.ref_name, 1, (length(github.ref_name) - 1)) || github.ref_name }}
+    # STRIPPED_VERSION is computed in a dedicated step below and exported to
+    # the job environment via $GITHUB_ENV. Using a shell step avoids expression
+    # parser limitations and keeps the logic simple.
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # need full history and tags to compute changelog
+
+      - name: Compute stripped version
+        # Compute a version value suitable for exposing in the image/runtime.
+        # If the tag starts with 'v' strip it; otherwise use the tag as-is.
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            echo "STRIPPED_VERSION=${GITHUB_REF_NAME:1}" >> $GITHUB_ENV
+          else
+            echo "STRIPPED_VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
