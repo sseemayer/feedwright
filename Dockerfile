@@ -10,5 +10,11 @@ COPY . /app
 WORKDIR /app
 RUN uv sync --frozen --no-cache
 
-# Run the application.
-CMD ["/app/.venv/bin/fastapi", "run", "app/main.py", "--port", "80", "--host", "0.0.0.0"]
+# Create a non-privileged user and make sure the app files are owned by them.
+RUN groupadd -r app \
+  && useradd -r -g app app \
+  && chown -R app:app /app
+
+# Run the application as the non-privileged user.
+USER app
+CMD ["/app/.venv/bin/fastapi", "run", "app/main.py", "--port", "8000", "--host", "0.0.0.0"]
