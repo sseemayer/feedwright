@@ -23,60 +23,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Compute changelog
-        id: changelog
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -vv --latest --strip header
         env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          # ensure tags are present
-          git fetch --tags
-
-          # list tags sorted by version (newest first)
-          mapfile -t tags < <(git tag --sort=-v:refname)
-
-          # find previous tag (the one right after current in the sorted list)
-          prev=""
-          for i in "${!tags[@]}"; do
-            if [ "${tags[$i]}" = "$TAG" ]; then
-              idx=$i
-              break
-            fi
-          done
-          if [ -n "${idx}" ] && [ $((idx+1)) -lt ${#tags[@]} ]; then
-            prev=${tags[$((idx+1))]}
-          fi
-
-          if [ -n "$prev" ]; then
-            range="$prev..$TAG"
-          else
-            # no previous tag found -> include all commits up to the tag
-            range="$TAG"
-          fi
-
-          # generate a simple changelog: one line per commit
-          changelog=$(git log --pretty=format:'- %s (%an)' $range || true)
-
-          if [ -z "$changelog" ]; then
-            changelog="- (no commits found)"
-          fi
-
-          date=$(date -u +"%Y-%m-%d")
-          body="## $TAG ($date)\n\n$changelog"
-
-          # save to file for debugging/inspection in artifacts
-          echo -e "$body" > release_changelog.md
-
-          # set step output so later steps can use it
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$body" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           release_name: ${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.body }}
+          body: ${{ steps.git-cliff.outputs.content }}
           draft: false
           prerelease: false
         env:
