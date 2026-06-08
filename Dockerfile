@@ -1,5 +1,11 @@
 FROM python:3.13-slim
 
+# Allow the build system to provide a version string which will be exposed
+# into the runtime environment as FEEDWRIGHT_VERSION. Default to empty so
+# existing local builds are unaffected.
+ARG FEEDWRIGHT_VERSION=""
+ENV FEEDWRIGHT_VERSION=${FEEDWRIGHT_VERSION}
+
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
