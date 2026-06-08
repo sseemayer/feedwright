@@ -30,7 +30,6 @@ jobs:
           config: cliff.toml
           args: -vv --latest --strip header
         env:
-          OUTPUT: CHANGES.md
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Create GitHub Release
