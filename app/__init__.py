@@ -7,6 +7,6 @@ from ._version import get_version_dict
 # requiring version-pioneer/git metadata to be available at runtime.
 env_ver = os.environ.get("FEEDWRIGHT_VERSION")
 if env_ver:
-    __version__ = env_ver
+    __version__ = env_ver[1:] if env_ver.startswith("v") else env_ver
 else:
     __version__ = get_version_dict()["version"]

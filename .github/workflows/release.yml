@@ -13,6 +13,9 @@ jobs:
   release:
     name: Create Release & Publish Image
     runs-on: ubuntu-latest
+    env:
+      # Compute the exposed version once: strip a leading 'v' from the tag if present.
+      STRIPPED_VERSION: ${{ github.ref_name startsWith('v') && github.ref_name[1:] || github.ref_name }}
 
     steps:
       - name: Checkout repository
@@ -57,7 +60,7 @@ jobs:
           context: .
           push: true
           build-args: |
-            FEEDWRIGHT_VERSION=${{ github.ref_name }}
+            FEEDWRIGHT_VERSION=${{ env.STRIPPED_VERSION }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:${{ env.STRIPPED_VERSION }}
             ghcr.io/${{ github.repository }}:latest
