@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-feedwright = "app.cli:app"
+feedwright = "app.cli.main:app"
 
 [dependency-groups]
 dev = [
