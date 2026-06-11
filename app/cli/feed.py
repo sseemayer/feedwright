@@ -1,4 +1,5 @@
 import typer
+import json
 
 from asyncer import syncify
 from functools import partial
@@ -29,3 +30,43 @@ async def get_extractor(
     rendered = format.render(feed)
 
     typer.echo(rendered)
+
+
+@app.command("extractor-schema")
+def extractor_schema(plugin: str):
+    """Print the schema for the extractor configuration."""
+
+    model = extractors.get_extractor_class(plugin)
+
+    print(json.dumps(model.model_json_schema(), indent=2, ensure_ascii=False))
+
+
+try:
+    import litellm
+    import instructor
+    import yaml
+
+    @app.command("generate-config")
+    @partial(syncify, raise_sync_error=False)
+    async def generate_config(url: str, plugin: str):
+        """Generate a configuration file for the extractors."""
+
+        litellm.suppress_debug_info = True
+        result = await extractors.generate_config(url, plugin)
+
+        output = {
+            "plugin": plugin,
+            "config": result.model_dump(mode="json", exclude_none=True),
+        }
+
+        print(
+            yaml.safe_dump(
+                output,
+                default_flow_style=False,
+                sort_keys=False,
+                allow_unicode=True,
+            )
+        )
+
+except ImportError:
+    pass

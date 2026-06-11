@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from httpx import AsyncClient, Client
 from pathlib import Path
 from typing import Annotated
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, BaseModel
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from platformdirs import PlatformDirs
@@ -12,11 +12,7 @@ from app import __version__ as version
 PLATFORM_DIRS = PlatformDirs("feedwright", "semicolonsoftware")
 
 
-class HttpSettings(BaseSettings):
-    model_config: SettingsConfigDict = SettingsConfigDict(
-        env_prefix="FEEDWRIGHT_HTTP_", env_file=".env", env_file_encoding="utf-8"
-    )
-
+class HttpSettings(BaseModel):
     user_agent: str = Field(
         f"feedwright/{version}",
         description="The User-Agent header to use for HTTP requests",
@@ -53,11 +49,7 @@ class HttpSettings(BaseSettings):
         )
 
 
-class GeneratorSettings(BaseSettings):
-    model_config: SettingsConfigDict = SettingsConfigDict(
-        env_prefix="FEEDWRIGHT_GENERATOR_", env_file=".env", env_file_encoding="utf-8"
-    )
-
+class GeneratorSettings(BaseModel):
     name: str = Field(
         "feedwright", description="The name to use in the feed generator tag"
     )
@@ -67,9 +59,24 @@ class GeneratorSettings(BaseSettings):
     )
 
 
+class AiSettings(BaseModel):
+    model: str | None = Field(
+        None, description="The name of the AI model to use for content generation"
+    )
+    key: str | None = Field(
+        None, description="The API key for the AI API", exclude=True
+    )
+    url: str | None = Field(
+        None, description="The base URL for the AI API, if not using a hosted service"
+    )
+
+
 class Settings(BaseSettings):
     model_config: SettingsConfigDict = SettingsConfigDict(
-        env_prefix="FEEDWRIGHT_", env_file=".env", env_file_encoding="utf-8"
+        env_prefix="FEEDWRIGHT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_nested_delimiter="__",
     )
 
     require_token: str | None = Field(
@@ -89,6 +96,8 @@ class Settings(BaseSettings):
 
     http: HttpSettings = HttpSettings()
     generator: GeneratorSettings = GeneratorSettings()
+
+    ai: AiSettings = AiSettings()
 
     @field_validator("config_paths", mode="before")
     @classmethod

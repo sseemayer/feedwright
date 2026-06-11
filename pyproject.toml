@@ -29,6 +29,13 @@ dev = [
     "version-pioneer>=0.0.16",
 ]
 
+[project.optional-dependencies]
+# extras for AI-related features, e.g. using LLMs to generate extractor configurations
+ai = [
+    "litellm",
+    "instructor",
+]
+
 
 [build-system]
 requires = ["hatchling", "version-pioneer"]
@@ -48,4 +55,3 @@ source = "version-pioneer"
 versionscript = "app/_version.py"  # Where to "read" the Version-Pioneer script (to execute `get_version_dict()`).
 versionfile-sdist = "app/_version.py"  # Where to "write" the version dict for sdist.
 versionfile-wheel = "app/_version.py"  # Where to "write" the version dict for wheel.
-

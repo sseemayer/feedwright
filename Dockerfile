@@ -14,7 +14,7 @@ COPY . /app
 
 # Install the application dependencies.
 WORKDIR /app
-RUN uv sync --frozen --no-cache
+RUN uv sync --frozen --no-cache --extra ai
 
 # Create a non-privileged user and make sure the app files are owned by them.
 RUN groupadd -r app \

@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 
 import cssselect
 from parsel import Selector as ParselSelector, SelectorList
-from typing import cast, override
+from typing import Literal, cast, override
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi import HTTPException, status
 
@@ -66,6 +66,11 @@ class SelectorBase(BaseModel, metaclass=ABCMeta):
 class ConstantSelector(SelectorBase):
     """A constant selector that always returns the same value"""
 
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"constant": "https://example.com/"}]},
+    )
+
     constant: str = Field(..., description="The constant value to return")
 
     @override
@@ -80,6 +85,11 @@ class ConstantSelector(SelectorBase):
 
 class CssSelector(SelectorBase):
     """A CSS selector to select the data from a HTML document"""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"css": "h1::text"}, {"css": "a::attr(href)"}]},
+    )
 
     css: str = Field(
         ..., description="CSS selector to select the data from the document"
@@ -105,6 +115,13 @@ class CssSelector(SelectorBase):
 
 class XPathSelector(SelectorBase):
     """An XPath selector to select the data from a HTML or XML document"""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [{"xpath": "//h1/text()"}, {"xpath": "//a/@href"}]
+        },
+    )
 
     xpath: str = Field(
         ..., description="XPath selector to select the data from the document"
@@ -146,6 +163,13 @@ class XPathSelector(SelectorBase):
 class JmesPathSelector(SelectorBase):
     """A JMESPath selector to select the data from a JSON document"""
 
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [{"jmespath": "data[*].title"}, {"jmespath": "to_string(id)"}]
+        },
+    )
+
     jmespath: str = Field(
         ..., description="JMESPath selector to select the data from the document"
     )
@@ -158,7 +182,12 @@ class JmesPathSelector(SelectorBase):
 
 
 class NoOpSelector(SelectorBase):
-    """A no-op selector that returns the input selector as is"""
+    """A no-op selector that returns the input selector as is. Use only for root context fields, never for value extraction."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"type": "noop"}]},
+    )
 
     @override
     def select_raw(
@@ -171,6 +200,13 @@ class NoOpSelector(SelectorBase):
 
 class OrSelector(SelectorBase):
     """A selector that tries multiple selectors in order and returns the first non-empty result"""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [{"selectors": [{"css": "h1::text"}, {"xpath": "//h1/text()"}]}]
+        },
+    )
 
     selectors: list["Selector"] = Field(
         ..., description="List of selectors to try in order"
@@ -204,8 +240,16 @@ class LinkConfig(BaseModel):
     root: Selector = Field(
         NoOpSelector(), description="Selector to select the root of the link data"
     )
-    href: Selector = Field(..., description="Selector to select the href of the link")
-    title: Selector = Field(..., description="Selector to select the title of the link")
+    href: Selector = Field(
+        ...,
+        description="Selector to select the href of the link",
+        examples=[{"css": "a::attr(href)"}, {"xpath": "//a/@href"}],
+    )
+    title: Selector = Field(
+        ...,
+        description="Selector to select the title of the link",
+        examples=[{"css": "a::text"}, {"xpath": "//a/text()"}],
+    )
 
     rel: Selector | None = Field(
         None, description="Selector to select the rel of the link"
@@ -338,18 +382,42 @@ class ArticlesConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     root: Selector = Field(
-        NoOpSelector(), description="Selector to select the root of the articles data"
+        NoOpSelector(),
+        description="Selector to select the repeating article element",
+        examples=[
+            {"css": "article.post"},
+            {"xpath": "//article"},
+            {"jmespath": "data"},
+        ],
     )
 
-    id: Selector = Field(..., description="Selector to select the ID of the article")
+    id: Selector = Field(
+        ...,
+        description="Selector to select the ID of the article (relative to root)",
+        examples=[
+            {"css": "a::attr(href)"},
+            {"xpath": ".//a/@href"},
+            {"jmespath": "to_string(id)"},
+        ],
+    )
     title: Selector = Field(
-        ..., description="Selector to select the title of the article"
+        ...,
+        description="Selector to select the title of the article (relative to root)",
+        examples=[
+            {"css": "h2::text"},
+            {"xpath": ".//h2/text()"},
+            {"jmespath": "title"},
+        ],
     )
     summary: Selector | None = Field(
-        None, description="Selector to select the summary of the article"
+        None,
+        description="Selector to select the summary of the article (relative to root)",
+        examples=[{"css": "p.summary::text"}, {"jmespath": "summary"}],
     )
     description: Selector | None = Field(
-        None, description="Selector to select the description of the article"
+        None,
+        description="Selector to select the description of the article (relative to root)",
+        examples=[{"css": "p::text"}, {"jmespath": "description"}],
     )
     content: Selector | None = Field(
         None, description="Selector to select the content of the article"
@@ -428,13 +496,39 @@ class ParselExtractor(Extractor):
         NoOpSelector(), description="Selector to select the root of the feed"
     )
 
-    id: Selector = Field(..., description="Selector to select the ID of the feed")
-    title: Selector = Field(..., description="Selector to select the title of the feed")
-    subtitle: Selector | None = Field(
-        None, description="Selector to select the subtitle of the feed"
+    id: Selector = Field(
+        ...,
+        description="Selector to select the ID of the feed. Use a constant selector for a static URL.",
+        examples=[
+            {"constant": "https://example.com/"},
+            {"css": "link[rel=canonical]::attr(href)"},
+        ],
     )
-    description: Selector | None = Field(
-        None, description="Selector to select the description of the feed"
+    title: Selector = Field(
+        ...,
+        description="Selector to select the title of the feed",
+        examples=[
+            {"constant": "Example News"},
+            {"css": "title::text"},
+            {"xpath": "//title/text()"},
+        ],
+    )
+    subtitle: Selector | None = Field(
+        None,
+        description="Selector to select the subtitle of the feed",
+        examples=[
+            {"css": "meta[name=description]::attr(content)"},
+            {"xpath": "//meta[@name='description']/@content"},
+        ],
+    )
+    description: Selector = Field(
+        ...,
+        description="Selector to select the description of the feed. Required: extraction will fail if this resolves to an empty value.",
+        examples=[
+            {"xpath": "//meta[@name='description']/@content"},
+            {"css": "meta[name=description]::attr(content)"},
+            {"constant": "Latest articles"},
+        ],
     )
 
     language: Selector | None = Field(
@@ -472,7 +566,7 @@ class ParselExtractor(Extractor):
         id = self.id.select(root).get()
         title = self.title.select(root).get()
         subtitle = self.subtitle.select(root).get() if self.subtitle else None
-        description = self.description.select(root).get() if self.description else None
+        description = self.description.select(root).get()
         language = self.language.select(root).get() if self.language else None
         logo = self.logo.select(root).get() if self.logo else None
 
