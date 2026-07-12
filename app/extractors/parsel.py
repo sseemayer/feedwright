@@ -419,6 +419,16 @@ class ArticlesConfig(BaseModel):
     content: Selector | None = Field(
         None, description="Selector to select the content of the article"
     )
+    publish_date: Selector | None = Field(
+        None,
+        description="Selector to select the publish date of the article (relative to root)",
+        examples=[{"css": "time::attr(datetime)"}, {"xpath": ".//time/@datetime"}, {"jmespath": "published_at"}],
+    )
+    update_date: Selector | None = Field(
+        None,
+        description="Selector to select the update/modification date of the article (relative to root)",
+        examples=[{"css": "time::attr(datetime)"}, {"xpath": ".//time/@datetime"}, {"jmespath": "updated_at"}],
+    )
 
     image: ImageConfig | None = Field(
         None, description="Configuration for selecting the image data of the article"
@@ -460,6 +470,12 @@ class ArticlesConfig(BaseModel):
             content = (
                 self.content.select(article_selector).get() if self.content else None
             )
+            publish_date = (
+                self.publish_date.select(article_selector).get() if self.publish_date else None
+            )
+            update_date = (
+                self.update_date.select(article_selector).get() if self.update_date else None
+            )
 
             article_out["id"] = str(id).strip() if id else None
             article_out["title"] = str(title).strip() if title else None
@@ -468,6 +484,12 @@ class ArticlesConfig(BaseModel):
                 str(description).strip() if description else None
             )
             article_out["content"] = str(content).strip() if content else None
+            article_out["publish_date"] = (
+                str(publish_date).strip() if publish_date else None
+            )
+            article_out["update_date"] = (
+                str(update_date).strip() if update_date else None
+            )
 
             if self.image:
                 article_out["image"] = self.image.extract(article_selector, base_url)
@@ -493,6 +515,8 @@ to that root. Use constant selectors for stable feed metadata when appropriate. 
 use an empty selector for a value. Feed id, title, and description are required, and
 the articles configuration must extract at least one item. Configure a feed link and
 an article link so that the result can render as both RSS and Atom.
+
+Make a best effort to also include optional fields such as dates.
 
 Rember that for JMESPath selectors, string concatenation is performed using a join method:
 
