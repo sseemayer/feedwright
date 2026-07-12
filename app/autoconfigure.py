@@ -29,6 +29,22 @@ and validation errors and must return a corrected configuration.
 The configuration URL must be the requested source URL. A successful feed must have an
 id, title, description, and at least one article. Every article must have a title and
 either an id or link. The result must render as both RSS and Atom.
+
+When available in the source, include normalized date selectors for both feed-level and
+article-level dates: feed.publish_date, feed.last_build_date, article.publish_date,
+and article.update_date. Prefer selectors that extract ISO 8601 datetimes (e.g.
+"2024-05-20T14:30:00Z") and, where necessary, use attributes such as <time datetime=>
+or JSON fields with ISO strings. Also include TTL selectors as integers when appropriate.
+
+Include structured categories and people where present: feed.categories (term, scheme),
+feed.authors/feed.contributors, and article.categories/article.authors. Use the
+existing Person and Category shapes (name, email, uri; term, scheme). If only simple
+strings are available for categories, provide selectors that return those strings and
+the system will convert them to Category objects.
+
+If a date string cannot be parsed by common ISO or RFC formats, return the selector
+anyway; the system will attempt to normalize it. Always prefer stable selectors
+(attributes, canonical links, or JMESPath expressions) over fragile text scraping.
 """
 
 
@@ -78,7 +94,9 @@ class SourceFetchError(AutoConfigureError):
 
 class ValidationExhaustedError(AutoConfigureError):
     def __init__(self, reports: list[AttemptReport]):
-        super().__init__(f"No valid extractor was produced after {len(reports)} attempts")
+        super().__init__(
+            f"No valid extractor was produced after {len(reports)} attempts"
+        )
         self.reports = reports
 
 
@@ -134,7 +152,9 @@ def _exception_message(exc: Exception) -> str:
 def _validate_feed(feed: Feed) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     if not feed.id.strip():
-        issues.append(ValidationIssue(code="missing_feed_id", message="Feed id is empty"))
+        issues.append(
+            ValidationIssue(code="missing_feed_id", message="Feed id is empty")
+        )
     if feed.title is None or not feed.title.strip():
         issues.append(
             ValidationIssue(code="missing_feed_title", message="Feed title is empty")
@@ -268,9 +288,7 @@ class AutoConfigureSession:
             )
 
         self.attempt += 1
-        client = instructor.from_litellm(
-            litellm.acompletion, mode=instructor.Mode.JSON
-        )
+        client = instructor.from_litellm(litellm.acompletion, mode=instructor.Mode.JSON)
         completion_args: dict[str, Any] = {  # pyright: ignore[reportExplicitAny]
             "model": settings.ai.model,
             "response_model": self.extractor_class,
@@ -310,7 +328,10 @@ class AutoConfigureSession:
         report = AttemptReport(attempt=self.attempt, errors=issues)
         self.reports.append(report)
         self.messages.append(
-            {"role": "assistant", "content": extractor.model_dump_json(exclude_none=True)}
+            {
+                "role": "assistant",
+                "content": extractor.model_dump_json(exclude_none=True),
+            }
         )
         if issues:
             self.messages.append(
@@ -318,8 +339,7 @@ class AutoConfigureSession:
                     "role": "user",
                     "content": (
                         "The candidate failed validation. Correct the configuration using "
-                        "these errors:\n\n"
-                        + _agent_validation_feedback(report)
+                        "these errors:\n\n" + _agent_validation_feedback(report)
                     ),
                 }
             )
@@ -334,9 +354,7 @@ async def autoconfigure(request: AutoConfigureRequest) -> AutoConfigureResult:
         if candidate.valid and candidate.feed is not None:
             return AutoConfigureResult(
                 plugin=request.plugin,
-                config=candidate.extractor.model_dump(
-                    mode="json", exclude_none=True
-                ),
+                config=candidate.extractor.model_dump(mode="json", exclude_none=True),
                 attempts=session.attempt,
                 article_count=len(candidate.feed.articles),
             )

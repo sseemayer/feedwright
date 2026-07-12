@@ -9,15 +9,33 @@ from parsel import Selector as ParselSelector, SelectorList
 from typing import Literal, cast, override
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi import HTTPException, status
+from dateutil.parser import parse as _parse_date
 
 from app.models.extractor import Extractor, ExtractorConfig, SourceDocument
-from app.models.feed import Article, Feed, Image, Link, Person
+from app.models.feed import Article, Feed, Image, Link, Person, Category, Generator
 
 
 class DocumentType(str, Enum):
     HTML = "html"
     XML = "xml"
     JSON = "json"
+
+
+def _normalize_date(value: str | None):
+    """Normalize a date-like string into a datetime object or return None.
+
+    Uses dateutil.parser.parse for flexible parsing. Returns the parsed
+    datetime on success, otherwise None.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return _parse_date(s)
+    except Exception:
+        return None
 
 
 class SelectorBase(BaseModel, metaclass=ABCMeta):
@@ -375,6 +393,54 @@ class PersonConfig(BaseModel):
         return out
 
 
+class CategoryConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    root: Selector = Field(
+        NoOpSelector(), description="Selector to select the root of the category data"
+    )
+    term: Selector = Field(..., description="Selector to select the category term")
+    scheme: Selector | None = Field(None, description="Selector to select the category scheme")
+
+    def extract(
+        self, selector: ParselSelector | SelectorList[ParselSelector], base_url: str
+    ) -> list[Category]:
+        out: list[Category] = []
+        for cat_selector in self.root.select(selector):
+            cat_out: dict[str, str] = {}
+            term = self.term.select(cat_selector).get()
+            scheme = self.scheme.select(cat_selector).get() if self.scheme else None
+            if term is None:
+                continue
+            cat_out["term"] = str(term).strip()
+            if scheme:
+                cat_out["scheme"] = str(scheme).strip()
+            out.append(Category.model_validate(cat_out))
+
+        return out
+
+
+class GeneratorConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    root: Selector = Field(
+        NoOpSelector(), description="Selector to select the root of the generator data"
+    )
+    generator: Selector = Field(..., description="Selector to select the generator name")
+    version: Selector | None = Field(None, description="Selector to select the generator version")
+
+    def extract(self, selector: ParselSelector | SelectorList[ParselSelector], base_url: str):
+        root_sel = self.root.select(selector)
+        gen_name = self.generator.select(root_sel).get()
+        version = self.version.select(root_sel).get() if self.version else None
+        if gen_name is None:
+            return None
+        out = {"generator": str(gen_name).strip()}
+        if version:
+            out["version"] = str(version).strip()
+        return Generator.model_validate(out)
+
+
 class ArticlesConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -433,6 +499,15 @@ class ArticlesConfig(BaseModel):
     image: ImageConfig | None = Field(
         None, description="Configuration for selecting the image data of the article"
     )
+    ttl: Selector | None = Field(
+        None, description="Selector to select the TTL (time-to-live) of the article"
+    )
+    categories: list[CategoryConfig] = Field(
+        [], description="Configuration for selecting categories for the article"
+    )
+    comments: Selector | None = Field(
+        None, description="Selector to select the comments URL/text for the article"
+    )
     links: list[LinkConfig] = Field(
         [],
         description="Configuration for selecting article-level links from the document",
@@ -470,6 +545,17 @@ class ArticlesConfig(BaseModel):
             content = (
                 self.content.select(article_selector).get() if self.content else None
             )
+            # TTL is expected to be an integer; attempt to coerce
+            ttl_val = (
+                self.ttl.select(article_selector).get() if getattr(self, "ttl", None) else None
+            )
+            # Categories extracted as structured Category objects
+            categories: list[Category] = []
+            for cat_conf in getattr(self, "categories", []):
+                categories.extend(cat_conf.extract(article_selector, base_url))
+            comments = (
+                self.comments.select(article_selector).get() if getattr(self, "comments", None) else None
+            )
             publish_date = (
                 self.publish_date.select(article_selector).get() if self.publish_date else None
             )
@@ -484,12 +570,20 @@ class ArticlesConfig(BaseModel):
                 str(description).strip() if description else None
             )
             article_out["content"] = str(content).strip() if content else None
-            article_out["publish_date"] = (
-                str(publish_date).strip() if publish_date else None
-            )
-            article_out["update_date"] = (
-                str(update_date).strip() if update_date else None
-            )
+            article_out["publish_date"] = _normalize_date(publish_date)
+            article_out["update_date"] = _normalize_date(update_date)
+            # Coerce ttl to int when possible
+            if ttl_val is not None:
+                try:
+                    article_out["ttl"] = int(str(ttl_val).strip())
+                except Exception:
+                    article_out["ttl"] = None
+            else:
+                article_out["ttl"] = None
+
+            # Attach structured categories and comments
+            article_out["categories"] = categories
+            article_out["comments"] = str(comments).strip() if comments else None
 
             if self.image:
                 article_out["image"] = self.image.extract(article_selector, base_url)
@@ -574,6 +668,15 @@ join(' ', [field1, field2])  # Concatenate field1 and field2 with a space as a s
     logo: Selector | None = Field(
         None, description="Selector to select the logo URL of the feed"
     )
+    image: ImageConfig | None = Field(None, description="Configuration for selecting feed image")
+    generator: GeneratorConfig | None = Field(None, description="Configuration for selecting feed generator/version")
+    last_build_date: Selector | None = Field(None, description="Selector to select the feed last build date")
+    publish_date: Selector | None = Field(None, description="Selector to select the feed publish date")
+    ttl: Selector | None = Field(None, description="Selector to select the feed TTL (time-to-live)")
+    categories: list[CategoryConfig] = Field([], description="Configuration for selecting feed-level categories")
+    authors: list[PersonConfig] = Field([], description="Configuration for selecting feed-level authors")
+    contributors: list[PersonConfig] = Field([], description="Configuration for selecting feed-level contributors")
+    managing_editor: PersonConfig | None = Field(None, description="Configuration for selecting the managing editor")
 
     links: list[LinkConfig] = Field(
         [], description="Configuration for selecting feed-level links from the document"
@@ -594,6 +697,31 @@ join(' ', [field1, field2])  # Concatenate field1 and field2 with a space as a s
         description = self.description.select(root).get()
         language = self.language.select(root).get() if self.language else None
         logo = self.logo.select(root).get() if self.logo else None
+        image = self.image.extract(root, document.url) if self.image else None
+        generator = None
+        if self.generator:
+            gen = self.generator.extract(root, document.url)
+            generator = gen
+        last_build_date = self.last_build_date.select(root).get() if self.last_build_date else None
+        publish_date = self.publish_date.select(root).get() if self.publish_date else None
+        ttl_val = self.ttl.select(root).get() if self.ttl else None
+
+        categories: list[Category] = []
+        for cat_conf in self.categories:
+            categories.extend(cat_conf.extract(root, document.url))
+
+        authors: list[Person] = []
+        for author_conf in self.authors:
+            authors.extend(author_conf.extract(root, document.url))
+
+        contributors: list[Person] = []
+        for contrib_conf in self.contributors:
+            contributors.extend(contrib_conf.extract(root, document.url))
+
+        managing_editor = None
+        if self.managing_editor:
+            me = self.managing_editor.extract(root, document.url)
+            managing_editor = me[0] if me else None
 
         links: list[Link] = []
         for link_config in self.links:
@@ -609,6 +737,14 @@ join(' ', [field1, field2])  # Concatenate field1 and field2 with a space as a s
         if description is None:
             raise ValueError("Feed description is required but could not be extracted")
 
+        # Coerce ttl to int for the feed when possible
+        ttl_coerced = None
+        if ttl_val is not None:
+            try:
+                ttl_coerced = int(str(ttl_val).strip())
+            except Exception:
+                ttl_coerced = None
+
         return Feed(
             id=id,
             title=title,
@@ -616,6 +752,15 @@ join(' ', [field1, field2])  # Concatenate field1 and field2 with a space as a s
             description=description,
             language=language,
             logo=logo,
+            image=image,
+            generator=generator,
+            last_build_date=_normalize_date(last_build_date),
+            publish_date=_normalize_date(publish_date),
+            ttl=ttl_coerced,
+            categories=categories,
+            authors=authors,
+            contributors=contributors,
+            managing_editor=managing_editor,
             links=links,
             articles=articles,
         )
