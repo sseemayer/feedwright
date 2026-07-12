@@ -1,4 +1,3 @@
-import httpx
 import json
 
 from abc import ABCMeta, abstractmethod
@@ -11,10 +10,8 @@ from typing import Literal, cast, override
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi import HTTPException, status
 
-from app.models.extractor import Extractor, ExtractorConfig
+from app.models.extractor import Extractor, ExtractorConfig, SourceDocument
 from app.models.feed import Article, Feed, Image, Link, Person
-
-from app.settings import settings
 
 
 class DocumentType(str, Enum):
@@ -286,7 +283,7 @@ class LinkConfig(BaseModel):
 
                 value = field_selector.select(link_selector).get()
                 if value is not None:
-                    link_out[key] = value.strip()
+                    link_out[key] = str(value).strip()
 
             if "href" not in link_out:
                 continue
@@ -329,7 +326,7 @@ class ImageConfig(BaseModel):
 
             value = field_selector.select(image_selector).get()
             if value is not None:
-                image_out[key] = value.strip()
+                image_out[key] = str(value).strip()
 
         if "url" not in image_out:
             return None
@@ -368,7 +365,7 @@ class PersonConfig(BaseModel):
 
                 value = field_selector.select(person_selector).get()
                 if value is not None:
-                    person_out[key] = value.strip()
+                    person_out[key] = str(value).strip()
 
             if "uri" in person_out:
                 person_out["uri"] = urljoin(base_url, person_out["uri"])
@@ -464,11 +461,13 @@ class ArticlesConfig(BaseModel):
                 self.content.select(article_selector).get() if self.content else None
             )
 
-            article_out["id"] = id.strip() if id else None
-            article_out["title"] = title.strip() if title else None
-            article_out["summary"] = summary.strip() if summary else None
-            article_out["description"] = description.strip() if description else None
-            article_out["content"] = content.strip() if content else None
+            article_out["id"] = str(id).strip() if id else None
+            article_out["title"] = str(title).strip() if title else None
+            article_out["summary"] = str(summary).strip() if summary else None
+            article_out["description"] = (
+                str(description).strip() if description else None
+            )
+            article_out["content"] = str(content).strip() if content else None
 
             if self.image:
                 article_out["image"] = self.image.extract(article_selector, base_url)
@@ -487,7 +486,21 @@ class ArticlesConfig(BaseModel):
 class ParselExtractor(Extractor):
     model_config = ConfigDict(extra="forbid")
 
-    url: str = Field(..., description="URL to fetch the data from")
+    autoconfigure_instructions = """\
+Use CSS or XPath selectors for HTML, XPath for XML, and JMESPath for JSON.
+Set each articles root selector to the repeating item and make child selectors relative
+to that root. Use constant selectors for stable feed metadata when appropriate. Never
+use an empty selector for a value. Feed id, title, and description are required, and
+the articles configuration must extract at least one item. Configure a feed link and
+an article link so that the result can render as both RSS and Atom.
+
+Rember that for JMESPath selectors, string concatenation is performed using a join method:
+
+```
+join(' ', [field1, field2])  # Concatenate field1 and field2 with a space as a separator
+```
+"""
+
     document_type: DocumentType = Field(
         DocumentType.HTML, description="Type of the document to parse"
     )
@@ -547,20 +560,8 @@ class ParselExtractor(Extractor):
     )
 
     @override
-    async def extract(self, config: ExtractorConfig) -> Feed:
-
-        async with settings.http.get_async_client() as client:
-            try:
-                response = await client.get(self.url)
-                _ = response.raise_for_status()
-
-            except httpx.ReadTimeout:
-                raise HTTPException(
-                    status.HTTP_504_GATEWAY_TIMEOUT,
-                    detail={"error": f"Timeout while fetching URL: {self.url}"},
-                )
-
-        selector = ParselSelector(text=response.text, type=self.document_type.value)
+    async def extract(self, document: SourceDocument, config: ExtractorConfig) -> Feed:
+        selector = ParselSelector(text=document.content, type=self.document_type.value)
 
         root = self.root.select(selector)
         id = self.id.select(root).get()
@@ -572,11 +573,11 @@ class ParselExtractor(Extractor):
 
         links: list[Link] = []
         for link_config in self.links:
-            links.extend(link_config.extract(root, self.url))
+            links.extend(link_config.extract(root, document.url))
 
         articles: list[Article] = []
         for articles_config in self.articles:
-            articles.extend(articles_config.extract(root, self.url))
+            articles.extend(articles_config.extract(root, document.url))
 
         if id is None:
             raise ValueError("Feed ID is required but could not be extracted")

@@ -10,12 +10,25 @@ from typing import Any, Callable, cast
 
 from app.models.feed import Feed
 from app.settings import settings
-from app.models.extractor import Extractor, ExtractorConfig
+from app.models.extractor import Extractor, ExtractorConfig, SourceDocument
 
 logger = logging.getLogger(__name__)
 
 
 EXTENSION_TO_PARSER: dict[str, Callable[[Path], dict[str, Any]]] = {}  # pyright: ignore[reportExplicitAny]
+
+
+async def fetch_document(url: str) -> SourceDocument:
+    """Download a document for an extractor."""
+    async with settings.http.get_async_client() as client:
+        response = await client.get(url)
+        _ = response.raise_for_status()
+
+    return SourceDocument(
+        url=str(response.url),
+        content=response.text,
+        content_type=response.headers.get("content-type"),
+    )
 
 
 def register_parser(extension: str | list[str]):
@@ -89,8 +102,9 @@ class Extractors:
         extractor_config = ExtractorConfig.model_validate(config)
         extractor_cls = self.get_extractor_class(extractor_config.plugin)
         extractor = extractor_cls(**extractor_config.config)  # pyright: ignore[reportAny]
+        document = await fetch_document(extractor.url)
 
-        return await extractor.extract(extractor_config)
+        return await extractor.extract(document, extractor_config)
 
 
 extractors = Extractors()

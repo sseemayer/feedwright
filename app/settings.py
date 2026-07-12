@@ -84,6 +84,12 @@ class Settings(BaseSettings):
         description="If not None, require this token to be passed as a bearer token for all API requests",
     )
 
+    require_admin_token: str | None = Field(
+        None,
+        exclude=True,
+        description="Bearer token required for privileged API operations",
+    )
+
     config_paths: Annotated[list[Path], NoDecode] = Field(
         [
             PLATFORM_DIRS.site_config_path,
